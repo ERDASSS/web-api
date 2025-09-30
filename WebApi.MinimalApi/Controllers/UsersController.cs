@@ -55,6 +55,10 @@ public class UsersController : Controller
         var userLastName = user.FullName.Split(' ')[0];
         var userFirstName = user.FullName.Split(' ')[1];
         
+        if (string.IsNullOrWhiteSpace(user.FullName) || user.FullName.Split(' ').Length < 2)
+            return UnprocessableEntity();
+        
+        
         if (existingUser == null)
         {
             var userEntity = mapper.Map<UserEntity>(user);
