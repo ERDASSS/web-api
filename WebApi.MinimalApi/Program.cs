@@ -27,6 +27,11 @@ builder.Services.AddAutoMapper(cfg =>
     cfg.CreateMap<UserEntity, UserDto>()
         .ForMember(dest => dest.FullName, 
             opt => opt.MapFrom(src => $"{src.LastName} {src.FirstName}"));
+    
+    cfg.CreateMap<UserDto, UserEntity>()
+        .ForMember(dest => dest.Id, opt => opt.Ignore()) 
+        .ForMember(dest => dest.LastName, opt => opt.Ignore()) 
+        .ForMember(dest => dest.FirstName, opt => opt.Ignore());
 }, typeof(Program).Assembly);
 
 var app = builder.Build();
