@@ -71,7 +71,7 @@ public class UsersController : Controller
 
     [Produces("application/json", "application/xml")]
     [HttpPut("{userId}")]
-    public IActionResult UpdateUser([FromRoute] string userId, [FromBody] UpdateUserDto  user)
+    public IActionResult UpdateUser([FromRoute] string userId, [FromBody] UpdateUserDto user)
     {
         if (user == null)
             return BadRequest();
@@ -118,6 +118,21 @@ public class UsersController : Controller
 
             userRepository.UpdateOrInsert(existingUser, out var isInserted);
             
+            return NoContent();
+        }
+    }
+
+    [Produces("application/json", "application/xml")]
+    [HttpDelete("{userId}")]
+    public IActionResult DeleteUser([FromRoute] Guid userId)
+    {
+        var user = userRepository.FindById(userId);
+
+        if (user == null)
+            return NotFound();
+        else
+        {
+            userRepository.Delete(userId);
             return NoContent();
         }
     }
