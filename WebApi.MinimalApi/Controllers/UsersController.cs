@@ -1,5 +1,7 @@
-﻿using AutoMapper;
+﻿using System.Text.RegularExpressions;
+using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
+using Newtonsoft.Json.Linq;
 using WebApi.MinimalApi.Domain;
 using WebApi.MinimalApi.Models;
 
@@ -67,37 +69,56 @@ public class UsersController : Controller
             createdUserEntity.Id);
     }
 
+    [Produces("application/json", "application/xml")]
     [HttpPut("{userId}")]
-    public IActionResult UpdateUser([FromRoute] Guid userId, [FromBody] UserDto user)
+    public IActionResult UpdateUser([FromRoute] string userId, [FromBody] UpdateUserDto  user)
     {
-        var existingUser = userRepository.FindById(userId);
-        var userLastName = user.FullName.Split(' ')[0];
-        var userFirstName = user.FullName.Split(' ')[1];
+        if (user == null)
+            return BadRequest();
         
-        if (string.IsNullOrWhiteSpace(user.FullName) || user.FullName.Split(' ').Length < 2)
-            return UnprocessableEntity();
+        if (!Guid.TryParse(userId, out var parsedUserId))
+            return BadRequest();
         
-        
+        if (string.IsNullOrEmpty(user.Login))
+            return UnprocessableEntity(JObject.FromObject(new { login = new JArray("Login is required") }));
+
+        if (!Regex.IsMatch(user.Login, @"^[a-zA-Z0-9]+$"))
+            return UnprocessableEntity(JObject.FromObject(new { login = new JArray("Login contains invalid characters") }));
+
+        if (string.IsNullOrEmpty(user.FirstName))
+            return UnprocessableEntity(JObject.FromObject(new { firstName = new JArray("First name is required") }));
+
+        if (string.IsNullOrEmpty(user.LastName))
+            return UnprocessableEntity(JObject.FromObject(new { lastName = new JArray("Last name is required") }));
+
+        var existingUser = userRepository.FindById(parsedUserId);
+
         if (existingUser == null)
         {
-            var userEntity = mapper.Map<UserEntity>(user);
-            userEntity.LastName = userLastName;
-            userEntity.FirstName = userFirstName;
-            // var newUser = new UserEntity(userId, user.Login, userLastName, userFirstName, user.GamesPlayed, user.CurrentGameId);
+            var userEntity = new UserEntity(parsedUserId)
+            {
+                Login = user.Login,
+                FirstName = user.FirstName,
+                LastName = user.LastName,
+                GamesPlayed = 0,
+                CurrentGameId = null
+            };
+
             userRepository.UpdateOrInsert(userEntity, out var isInserted);
             
-            var updatedUserDto = mapper.Map<UserDto>(userEntity);
-            return CreatedAtAction(nameof(GetUserById), new { userId = userId }, updatedUserDto);
+            var createdId = userEntity.Id.ToString();
+            
+            return CreatedAtAction(nameof(GetUserById), new { userId = createdId }, createdId);
         }
         else
         {
-            mapper.Map(user, existingUser);
-            existingUser.LastName = userLastName;
-            existingUser.FirstName = userFirstName;
+            existingUser.Login = user.Login;
+            existingUser.FirstName = user.FirstName;
+            existingUser.LastName = user.LastName;
+
             userRepository.UpdateOrInsert(existingUser, out var isInserted);
             
-            var updatedUserDto = mapper.Map<UserDto>(existingUser);
-            return Ok(updatedUserDto);
+            return NoContent();
         }
     }
 }
