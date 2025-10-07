@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
 using WebApi.MinimalApi.Domain;
 using WebApi.MinimalApi.Models;
@@ -73,11 +74,11 @@ public class UsersController : Controller
         var existingUser = userRepository.FindById(userId);
         var userLastName = user.FullName.Split(' ')[0];
         var userFirstName = user.FullName.Split(' ')[1];
-        
+
         if (string.IsNullOrWhiteSpace(user.FullName) || user.FullName.Split(' ').Length < 2)
             return UnprocessableEntity();
-        
-        
+
+
         if (existingUser == null)
         {
             var userEntity = mapper.Map<UserEntity>(user);
@@ -85,7 +86,7 @@ public class UsersController : Controller
             userEntity.FirstName = userFirstName;
             // var newUser = new UserEntity(userId, user.Login, userLastName, userFirstName, user.GamesPlayed, user.CurrentGameId);
             userRepository.UpdateOrInsert(userEntity, out var isInserted);
-            
+
             var updatedUserDto = mapper.Map<UserDto>(userEntity);
             return CreatedAtAction(nameof(GetUserById), new { userId = userId }, updatedUserDto);
         }
@@ -95,9 +96,44 @@ public class UsersController : Controller
             existingUser.LastName = userLastName;
             existingUser.FirstName = userFirstName;
             userRepository.UpdateOrInsert(existingUser, out var isInserted);
-            
+
             var updatedUserDto = mapper.Map<UserDto>(existingUser);
             return Ok(updatedUserDto);
         }
+    }
+
+    [HttpPatch("{userId}")]
+    public IActionResult PartiallyUpdateUser([FromRoute] string userId, [FromBody] JsonPatchDocument<UserDtoForUpdating>? patchDoc)
+    {
+        if (patchDoc == null)
+            return BadRequest();
+
+        if (!Guid.TryParse(userId, out var userGuid))
+            return NotFound();
+
+        var existingUser = userRepository.FindById(userGuid);
+        if (existingUser == null)
+            return NotFound();
+
+        var userToPatch = mapper.Map<UserDtoForUpdating>(existingUser);
+
+        patchDoc.ApplyTo(userToPatch, ModelState);
+
+        TryValidateModel(userToPatch);
+
+        if (!ModelState.IsValid)
+        {
+            return new ObjectResult(ModelState)
+            {
+                StatusCode = StatusCodes.Status422UnprocessableEntity,
+                ContentTypes = { "application/json" }
+            };
+        }
+
+        mapper.Map(userToPatch, existingUser);
+
+        userRepository.UpdateOrInsert(existingUser, out var isInserted);
+
+        return NoContent();
     }
 }
