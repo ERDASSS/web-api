@@ -140,6 +140,19 @@ public class UsersController : Controller
         
     }
 
+    [HttpHead("{userId}")]
+    public IActionResult HeadUser([FromRoute] Guid userId)
+    {
+        var user = userRepository.FindById(userId);
+        
+        if (user == null)
+            return NotFound();
+        
+        Response.Headers.Add("Content-Type", "application/json; charset=utf-8");
+        
+        return Ok();
+    }
+
     [HttpGet(Name = "GetUsers")]
     [Produces("application/json", "application/xml")]
     public IActionResult GetUsers([FromQuery, Range(1, Int32.MaxValue)] int pageNumber = 1, [FromQuery] int pageSize = 10)
