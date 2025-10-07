@@ -1,5 +1,6 @@
-﻿using System.Text.RegularExpressions;
+using System.Text.RegularExpressions;
 using AutoMapper;
+using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -125,6 +126,41 @@ public class UsersController : Controller
             
             return NoContent();
         }
+    }
+    
+    [HttpPatch("{userId}")]
+    public IActionResult PartiallyUpdateUser([FromRoute] string userId, [FromBody] JsonPatchDocument<UserDtoForUpdating>? patchDoc)
+    {
+        if (patchDoc == null)
+            return BadRequest();
+
+        if (!Guid.TryParse(userId, out var userGuid))
+            return NotFound();
+
+        var existingUser = userRepository.FindById(userGuid);
+        if (existingUser == null)
+            return NotFound();
+
+        var userToPatch = mapper.Map<UserDtoForUpdating>(existingUser);
+
+        patchDoc.ApplyTo(userToPatch, ModelState);
+
+        TryValidateModel(userToPatch);
+
+        if (!ModelState.IsValid)
+        {
+            return new ObjectResult(ModelState)
+            {
+                StatusCode = StatusCodes.Status422UnprocessableEntity,
+                ContentTypes = { "application/json" }
+            };
+        }
+
+        mapper.Map(userToPatch, existingUser);
+
+        userRepository.UpdateOrInsert(existingUser, out var isInserted);
+
+        return NoContent();
     }
     
     [HttpDelete("{userId}")]
