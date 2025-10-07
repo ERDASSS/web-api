@@ -183,6 +183,13 @@ public class UsersController : Controller
         return Ok(users);
     }
 
+    [HttpOptions]
+    public IActionResult Options()
+    {
+        Response.Headers.Add("Allow", "POST,GET,OPTIONS");
+        return Ok();
+    }
+
     private int GetTotalUserCount()
     {
         var totalUsers = 0;
